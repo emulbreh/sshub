@@ -180,9 +180,11 @@ func (hub *Hub) serializeTunnels() []interface{} {
 	tunnels := make([]interface{}, len(hub.tunnels))
 	for i, tunnel := range hub.tunnels {
 		tunnels[i] = &struct {
-			From PortStatus
-			To   PortStatus
+			Port uint32     `json:"port"`
+			From PortStatus `json:"from"`
+			To   PortStatus `json:"to"`
 		}{
+			tunnel.Port,
 			tunnel.From.Serialize(),
 			tunnel.To.Serialize(),
 		}
