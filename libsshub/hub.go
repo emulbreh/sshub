@@ -95,6 +95,36 @@ func DiscardChannels(chanReqs <-chan ssh.NewChannel) {
 	}
 }
 
+func (hub *Hub) handleRChannels(port *Port, conn ssh.Conn, chanReqs <-chan ssh.NewChannel) {
+	for chanReq := range chanReqs {
+		chanReq.Reject(ssh.Prohibited, "tcpip-forward only (-NR)")
+	}
+}
+
+func (hub *Hub) handleRRequests(port *Port, conn ssh.Conn, reqs <-chan *ssh.Request) {
+	for req := range reqs {
+		if req.Type == "tcpip-forward" {
+			port.Conn = conn
+			defer func() {
+				port.Conn = nil
+			}()
+			req.Reply(true, []byte{})
+		} else {
+			log.Warnf("got unexpected request %q WantReply=%q: %q\n", req.Type, req.WantReply, req.Payload)
+			req.Reply(false, nil)
+		}
+	}
+}
+
+/*
+func (hub *Hub) handleLChannels(chanReqs <-chan ssh.NewChannel) {
+
+}
+
+func (hub *Hub) handleLRequests(port Port, reqs <-ssh.Request) {
+}
+*/
+
 func (hub *Hub) handleConnection(netConn net.Conn, config *ssh.ServerConfig) error {
 	conn, chanReqs, reqs, err := ssh.NewServerConn(netConn, config)
 	if err != nil {
@@ -158,19 +188,8 @@ func (hub *Hub) handleConnection(netConn net.Conn, config *ssh.ServerConfig) err
 			go io.Copy(dstChan, srcChan)
 		}
 	} else {
-		go DiscardChannels(chanReqs)
-		for req := range reqs {
-			if req.Type == "tcpip-forward" {
-				port.Conn = conn
-				defer func() {
-					port.Conn = nil
-				}()
-				req.Reply(true, []byte{})
-			} else {
-				log.Warnf("got unexpected request %q WantReply=%q: %q\n", req.Type, req.WantReply, req.Payload)
-				req.Reply(false, nil)
-			}
-		}
+		go hub.handleRChannels(port, conn, chanReqs)
+		hub.handleRRequests(port, conn, reqs)
 	}
 	log.Infof("Disconnecting user=%s", port.User)
 	return nil
