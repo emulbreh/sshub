@@ -11,18 +11,18 @@ import (
 )
 
 type Hub struct {
-	mutex       sync.RWMutex
-	tunnels     []*Tunnel
-	portsByUser map[string]*Port
-	privateKey  ssh.Signer
+	mutex         sync.RWMutex
+	links         []*Link
+	tunnelsByUser map[string]*Tunnel
+	privateKey    ssh.Signer
 }
 
 func NewHub(privateKey ssh.Signer) *Hub {
 	return &Hub{
-		mutex:       sync.RWMutex{},
-		tunnels:     []*Tunnel{},
-		portsByUser: map[string]*Port{},
-		privateKey:  privateKey,
+		mutex:         sync.RWMutex{},
+		links:         []*Link{},
+		tunnelsByUser: map[string]*Tunnel{},
+		privateKey:    privateKey,
 	}
 }
 
@@ -30,12 +30,12 @@ func (hub *Hub) Listen(addr string) error {
 	config := &ssh.ServerConfig{
 		PublicKeyCallback: func(c ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
 			k := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key)))
-			port := hub.GetPort(c.User())
-			if port == nil {
+			tunnel := hub.GetTunnelByUser(c.User())
+			if tunnel == nil {
 				log.Errorf("Authentication failed (unknown user): %s@%s", c.User(), c.RemoteAddr())
 				return nil, fmt.Errorf("unknown user")
 			}
-			if k != port.PublicKey {
+			if k != tunnel.PublicKey {
 				log.Errorf("Authentication failed (invalid key): %s@%s", c.User(), c.RemoteAddr())
 				return nil, fmt.Errorf("unknown key")
 			}
@@ -68,25 +68,25 @@ type forwardChannelArgs struct {
 	OriginPort uint32
 }
 
-func (hub *Hub) addTunnel(tunnel *Tunnel) error {
-	tunnel.From.Tunnel = tunnel
-	tunnel.To.Tunnel = tunnel
+func (hub *Hub) addLink(link *Link) error {
+	link.From.Link = link
+	link.To.Link = link
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
-	if hub.portsByUser[tunnel.From.User] != nil {
-		return fmt.Errorf("Multiple ports for user %s", tunnel.From.User)
+	if hub.tunnelsByUser[link.From.User] != nil {
+		return fmt.Errorf("Multiple ports for user %s", link.From.User)
 	}
-	log.Infof("Configuring tunnel %s -> %s", tunnel.From.User, tunnel.To.User)
-	hub.tunnels = append(hub.tunnels, tunnel)
-	hub.portsByUser[tunnel.From.User] = &tunnel.From
-	hub.portsByUser[tunnel.To.User] = &tunnel.To
+	log.Infof("Configuring tunnel %s -> %s", link.From.User, link.To.User)
+	hub.links = append(hub.links, link)
+	hub.tunnelsByUser[link.From.User] = &link.From
+	hub.tunnelsByUser[link.To.User] = &link.To
 	return nil
 }
 
-func (hub *Hub) GetPort(user string) *Port {
+func (hub *Hub) GetTunnelByUser(user string) *Tunnel {
 	hub.mutex.RLock()
 	defer hub.mutex.RUnlock()
-	return hub.portsByUser[user]
+	return hub.tunnelsByUser[user]
 }
 
 func DiscardChannels(chanReqs <-chan ssh.NewChannel) {
@@ -95,18 +95,18 @@ func DiscardChannels(chanReqs <-chan ssh.NewChannel) {
 	}
 }
 
-func (hub *Hub) handleRChannels(port *Port, conn ssh.Conn, chanReqs <-chan ssh.NewChannel) {
+func (hub *Hub) handleRChannels(tunnel *Tunnel, conn ssh.Conn, chanReqs <-chan ssh.NewChannel) {
 	for chanReq := range chanReqs {
 		chanReq.Reject(ssh.Prohibited, "tcpip-forward only (-NR)")
 	}
 }
 
-func (hub *Hub) handleRRequests(port *Port, conn ssh.Conn, reqs <-chan *ssh.Request) {
+func (hub *Hub) handleRRequests(tunnel *Tunnel, conn ssh.Conn, reqs <-chan *ssh.Request) {
 	for req := range reqs {
 		if req.Type == "tcpip-forward" {
-			port.Conn = conn
+			tunnel.Conn = conn
 			defer func() {
-				port.Conn = nil
+				tunnel.Conn = nil
 			}()
 			req.Reply(true, []byte{})
 		} else {
@@ -133,12 +133,12 @@ func (hub *Hub) handleConnection(netConn net.Conn, config *ssh.ServerConfig) err
 	}
 	remoteAddr := conn.RemoteAddr().(*net.TCPAddr)
 	log.Infof("Initialized ssh connection to %s@%v", conn.User(), remoteAddr)
-	port := hub.GetPort(conn.User())
-	if port == nil {
-		log.Errorf("No tunnel configuration for %v", port)
+	tunnel := hub.GetTunnelByUser(conn.User())
+	if tunnel == nil {
+		log.Errorf("No tunnel configuration for %v", conn.User())
 	}
 
-	if port.IsSource() {
+	if tunnel.IsSource() {
 		go ssh.DiscardRequests(reqs)
 		for chanReq := range chanReqs {
 			if chanReq.ChannelType() != "direct-tcpip" {
@@ -153,8 +153,8 @@ func (hub *Hub) handleConnection(netConn net.Conn, config *ssh.ServerConfig) err
 				chanReq.Reject(ssh.Prohibited, "invalid request data")
 				continue
 			}
-			if args.Port != port.Tunnel.Port {
-				log.Warningf("Rejecting channel request on unexpected port %i, expected %i", args.Port, port.Tunnel.Port)
+			if args.Port != tunnel.Link.Port {
+				log.Warningf("Rejecting channel request on unexpected port %i, expected %i", args.Port, tunnel.Link.Port)
 				chanReq.Reject(ssh.Prohibited, "bad port")
 				continue
 			}
@@ -167,15 +167,15 @@ func (hub *Hub) handleConnection(netConn net.Conn, config *ssh.ServerConfig) err
 			log.Infof("Accepted direct-tcpip channel from %s@%v", conn.User(), remoteAddr)
 			go ssh.DiscardRequests(srcReqs)
 
-			dstConn := port.Tunnel.To.Conn
+			dstConn := tunnel.Link.To.Conn
 			if dstConn == nil {
 				log.Warning("target not connected")
 				continue
 			}
-			log.Infof("requesting forwarded-tcpip channel from %v to %v", port.Tunnel.From, port.Tunnel.To)
+			log.Infof("requesting forwarded-tcpip channel from %v to %v", tunnel.Link.From, tunnel.Link.To)
 			dstChan, dstReqs, err := dstConn.OpenChannel("forwarded-tcpip", ssh.Marshal(&forwardChannelArgs{
 				Addr:       "localhost",
-				Port:       port.Tunnel.Port,
+				Port:       tunnel.Link.Port,
 				OriginAddr: remoteAddr.IP.String(),
 				OriginPort: uint32(remoteAddr.Port),
 			}))
@@ -188,25 +188,25 @@ func (hub *Hub) handleConnection(netConn net.Conn, config *ssh.ServerConfig) err
 			go io.Copy(dstChan, srcChan)
 		}
 	} else {
-		go hub.handleRChannels(port, conn, chanReqs)
-		hub.handleRRequests(port, conn, reqs)
+		go hub.handleRChannels(tunnel, conn, chanReqs)
+		hub.handleRRequests(tunnel, conn, reqs)
 	}
-	log.Infof("Disconnecting user=%s", port.User)
+	log.Infof("Disconnecting user=%s", tunnel.User)
 	return nil
 }
 
-func (hub *Hub) serializeTunnels() []interface{} {
-	tunnels := make([]interface{}, len(hub.tunnels))
-	for i, tunnel := range hub.tunnels {
-		tunnels[i] = &struct {
-			Port uint32     `json:"port"`
-			From PortStatus `json:"from"`
-			To   PortStatus `json:"to"`
+func (hub *Hub) serializeLinks() []interface{} {
+	links := make([]interface{}, len(hub.links))
+	for i, link := range hub.links {
+		links[i] = &struct {
+			Port uint32       `json:"port"`
+			From TunnelStatus `json:"from"`
+			To   TunnelStatus `json:"to"`
 		}{
-			tunnel.Port,
-			tunnel.From.Serialize(),
-			tunnel.To.Serialize(),
+			link.Port,
+			link.From.Serialize(),
+			link.To.Serialize(),
 		}
 	}
-	return tunnels
+	return links
 }

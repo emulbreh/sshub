@@ -5,26 +5,26 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-type Port struct {
+type Tunnel struct {
 	PublicKey string   `json:"public_key"`
 	User      string   `json:"user"`
-	Tunnel    *Tunnel  `json:"-"`
+	Link      *Link    `json:"-"`
 	Conn      ssh.Conn `json:"-"`
 }
 
-type PortStatus struct {
-	*Port
+type TunnelStatus struct {
+	*Tunnel
 	Connected bool `json:"connected"`
 }
 
-func (port *Port) IsSource() bool {
-	return port.Tunnel.From == *port
+func (tun *Tunnel) IsSource() bool {
+	return tun.Link.From == *tun
 }
 
-func (port *Port) Serialize() PortStatus {
-	return PortStatus{port, port.Conn != nil}
+func (tun *Tunnel) Serialize() TunnelStatus {
+	return TunnelStatus{tun, tun.Conn != nil}
 }
 
-func (port *Port) String() string {
-	return fmt.Sprintf("Port(user=%s)", port.User)
+func (tun *Tunnel) String() string {
+	return fmt.Sprintf("Port(user=%s)", tun.User)
 }

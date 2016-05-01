@@ -12,9 +12,9 @@ type APIError struct {
 }
 
 func InstallHttpHandlers(hub *Hub) {
-	tunnelsEndpoint := func(w http.ResponseWriter, r *http.Request) {
+	linksEndpoint := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
-			json.NewEncoder(w).Encode(hub.serializeTunnels())
+			json.NewEncoder(w).Encode(hub.serializeLinks())
 			return
 		}
 		if r.Method != "POST" {
@@ -22,15 +22,15 @@ func InstallHttpHandlers(hub *Hub) {
 			http.Error(w, "Method Not Allowed", 405)
 			return
 		}
-		var tunnel Tunnel
-		err := json.NewDecoder(r.Body).Decode(&tunnel)
+		var link Link
+		err := json.NewDecoder(r.Body).Decode(&link)
 		if err != nil {
 			log.Infof("json decoding error %v", err)
 			http.Error(w, "Bad Request", 400)
 			json.NewEncoder(w).Encode(&APIError{Code: "invalid-json", Message: err.Error()})
 			return
 		}
-		err = hub.addTunnel(&tunnel)
+		err = hub.addLink(&link)
 		if err != nil {
 			http.Error(w, "Bad Request", 400)
 			json.NewEncoder(w).Encode(&APIError{Code: "invalid-tunnel", Message: err.Error()})
@@ -39,5 +39,5 @@ func InstallHttpHandlers(hub *Hub) {
 		json.NewEncoder(w).Encode(struct{}{})
 	}
 
-	http.HandleFunc("/tunnels/", tunnelsEndpoint)
+	http.HandleFunc("/links/", linksEndpoint)
 }

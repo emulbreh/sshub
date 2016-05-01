@@ -1,8 +1,8 @@
 package libsshub
 
-type Tunnel struct {
-	From        Port   `json:"from"`
-	To          Port   `json:"to"`
+type Link struct {
+	From        Tunnel `json:"from"`
+	To          Tunnel `json:"to"`
 	Port        uint32 `json:"port"`
 	Established bool   `json:"-"`
 }

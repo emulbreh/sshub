@@ -30,7 +30,7 @@ class Tests(unittest.TestCase):
             p.wait()
 
     def configure(self):
-        response = requests.post("http://127.0.0.1:4080/tunnels/", data=json.dumps({
+        response = requests.post("http://127.0.0.1:4080/links/", data=json.dumps({
             "port": self.middle_port,
         	"from": {
         		"public_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDRuinxi4hANygNImiWn6Jjhn5Wyo1tFzmz+x51wvYUNDIHUIdFeX/51yN27+kMv1yUcLvLcbUio925OVan1kFD4VzCfTJ+TqTS4cT8ZnwbrJFZeewFct1aUZeHBB9ttC1WMsXIAA9ZFyFskyN850axiKyvY8Jy4oDedb08OeWRTi+jPjEolD5e33H4JJygujwJxjpdOlbYN+Ah56CcILJXE4O+m5bxy5Krt/hR84+uqOk2aI+8pPVMQxbABPJjaNJZblK9RHGUGuOVAhhA1dW+0rKWoH2bOt6ODW7vggDG0d0G4VwkPvAEWZpkyDroIkk8tHK/jqf9qDi9UsMibVOd",
@@ -57,7 +57,7 @@ class Tests(unittest.TestCase):
             self.spawn([os.path.join(basedir, 'sshub'), '--key-file=tests/test_rsa'], cwd=basedir)
             time.sleep(1)
             self.configure()
-            subprocess.call('curl http://127.0.0.1:4080/tunnels/ | jq .', shell=True)
+            subprocess.call('curl http://127.0.0.1:4080/links/ | jq .', shell=True)
 
             self.spawn(['php', '-S', 'localhost:8080', '--docroot', self.tmp_dir])
             self.spawn(['ssh', '-NL', '9080:localhost:%s' % self.middle_port, '-p', '4022', '-i', 'alice', 'alice@localhost'])
