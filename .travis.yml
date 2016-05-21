@@ -4,5 +4,9 @@ go:
   - 1.5
   - 1.6
 
+before_script:
+  - virtualenv ${TRAVIS_BUILD_DIR}/env
+  - ${TRAVIS_BUILD_DIR}/env/bin/pip install requests
+
 script:
-  - cd ${TRAVIS_BUILD_DIR}/tests && python -m unittest test
+  - cd ${TRAVIS_BUILD_DIR}/tests && ${TRAVIS_BUILD_DIR}/env/bin/python -m unittest test
