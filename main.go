@@ -2,7 +2,7 @@ package main
 
 import (
 	log "github.com/Sirupsen/logrus"
-	"github.com/voltaro/sshub/libsshub"
+	"github.com/emulbreh/sshub/libsshub"
 	"golang.org/x/crypto/ssh"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	"io/ioutil"
