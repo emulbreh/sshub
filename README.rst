@@ -1,3 +1,6 @@
+.. image:: https://travis-ci.org/emulbreh/sshub.svg?branch=master
+    :target: https://travis-ci.org/emulbreh/sshub
+
 sshub
 =====
 
