@@ -5,4 +5,4 @@ go:
   - 1.6
 
 script:
-  - cd ${TRAVIS_BUILD_DIR}/tests && python -m unittest
+  - cd ${TRAVIS_BUILD_DIR}/tests && python -m unittest test
