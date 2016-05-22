@@ -7,10 +7,11 @@ go:
 addons:
   apt:
     packages:
+      - python3
       - python-virtualenv
 
 before_script:
-  - virtualenv env
+  - virtualenv --python=python3 env
   - env/bin/pip install -r tests/requirements.txt
 
 script:
