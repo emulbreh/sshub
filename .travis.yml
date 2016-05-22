@@ -13,6 +13,7 @@ addons:
 before_script:
   - virtualenv --python=python3 env
   - env/bin/pip install -r tests/requirements.txt
+  - chmod 600 tests/alice tests/bob
 
 script:
   - go build
