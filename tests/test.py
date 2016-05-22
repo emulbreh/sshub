@@ -1,3 +1,4 @@
+import errno
 import json
 import requests
 import subprocess
@@ -25,7 +26,11 @@ class Tests(unittest.TestCase):
     def stop_processes(self):
         for cmd, p in self.processes:
             print("terminating %s" % ' '.join(cmd))
-            p.terminate()
+            try:
+                p.terminate()
+            except OSError as e:
+                if e.errno != errno.ESRCH:
+                    raise
         for cmd, p in self.processes:
             p.wait()
 
