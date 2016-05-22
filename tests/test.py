@@ -60,8 +60,8 @@ class Tests(unittest.TestCase):
             subprocess.call('curl http://127.0.0.1:4080/links/ | jq .', shell=True)
 
             self.spawn(['python', '-m', 'http.server', '8080'], cwd=self.tmp_dir)
-            self.spawn(['ssh', '-NL', '9080:localhost:%s' % self.middle_port, '-p', '4022', '-i', 'alice', 'alice@localhost'])
-            self.spawn(['ssh', '-NR', '%s:localhost:8080' % self.middle_port, '-p', '4022', '-i', 'bob', 'bob@localhost'])
+            self.spawn(['ssh', '-NL', '9080:localhost:%s' % self.middle_port, '-p', '4022', '-i', 'alice', 'alice@localhost', '-o', 'StrictHostKeyChecking=no'])
+            self.spawn(['ssh', '-NR', '%s:localhost:8080' % self.middle_port, '-p', '4022', '-i', 'bob', 'bob@localhost', '-o', 'StrictHostKeyChecking=no'])
             time.sleep(1)
             subprocess.call('curl http://127.0.0.1:4080/tunnels/ | jq .', shell=True)
 
