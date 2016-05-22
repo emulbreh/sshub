@@ -57,17 +57,17 @@ class Tests(unittest.TestCase):
             self.spawn([os.path.join(basedir, 'sshub'), '--key-file=tests/test_rsa'], cwd=basedir)
             time.sleep(1)
             self.configure()
-            subprocess.call('curl http://127.0.0.1:4080/links/ | jq .', shell=True)
+            subprocess.call('curl -s http://127.0.0.1:4080/links/ | jq .', shell=True)
 
             self.spawn([sys.executable, '-m', 'http.server', '8080'], cwd=self.tmp_dir)
             self.spawn(['ssh', '-NL', '9080:localhost:%s' % self.middle_port, '-p', '4022', '-i', 'alice', 'alice@localhost', '-o', 'StrictHostKeyChecking=no'])
             self.spawn(['ssh', '-NR', '%s:localhost:8080' % self.middle_port, '-p', '4022', '-i', 'bob', 'bob@localhost', '-o', 'StrictHostKeyChecking=no'])
             time.sleep(1)
-            subprocess.call('curl http://127.0.0.1:4080/tunnels/ | jq .', shell=True)
+            subprocess.call('curl -s http://127.0.0.1:4080/links/', shell=True)
 
             response = requests.get('http://127.0.0.1:9080/test.txt')
             result = response.content.decode('ascii')
-            subprocess.call('curl http://127.0.0.1:4080/tunnels/ | jq .', shell=True)
+            subprocess.call('curl -s http://127.0.0.1:4080/links/ | jq .', shell=True)
         finally:
             self.stop_processes()
         self.assertEqual(result, self.cookie)
