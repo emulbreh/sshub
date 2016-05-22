@@ -4,9 +4,14 @@ go:
   - 1.5
   - 1.6
 
+addons:
+  apt:
+    packages:
+      - python-virtualenv
+
 before_script:
   - virtualenv ${TRAVIS_BUILD_DIR}/env
-  - ${TRAVIS_BUILD_DIR}/env/bin/pip install requests
+  - ${TRAVIS_BUILD_DIR}/env/bin/pip install -r tests/requirements.txt
 
 script:
   - cd ${TRAVIS_BUILD_DIR}/tests && ${TRAVIS_BUILD_DIR}/env/bin/python -m unittest test
