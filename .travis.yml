@@ -10,8 +10,9 @@ addons:
       - python-virtualenv
 
 before_script:
-  - virtualenv ${TRAVIS_BUILD_DIR}/env
-  - ${TRAVIS_BUILD_DIR}/env/bin/pip install -r tests/requirements.txt
+  - virtualenv env
+  - env/bin/pip install -r tests/requirements.txt
 
 script:
-  - cd ${TRAVIS_BUILD_DIR}/tests && ${TRAVIS_BUILD_DIR}/env/bin/python -m unittest test
+  - go build
+  - cd tests && ../env/bin/python -m unittest test
